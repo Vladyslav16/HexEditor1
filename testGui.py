@@ -3,7 +3,7 @@ import pdb
 import tkinter as tk
 from tkinter import filedialog, scrolledtext
 from window import *
-from EditorContext import bytes_to_str, hex_print, get_hex_format, Highlight, bytes_hl, one_byte_to_ascii
+from EditorContext import *
 
 class HexEditor:
     def __init__(self, root):
@@ -326,8 +326,6 @@ class HexEditor:
             self.path_to_file = path
 
     def search_dialog(self):
-        self.selected_text = self.get_selected_text()
-
         if hasattr(self, "find_window") and self.find_window.winfo_exists():
             self.find_window.lift()
             self.find_window.focus_set()
@@ -375,7 +373,7 @@ class HexEditor:
 
         self.matchCase_check = tk.BooleanVar(value=False)
         self.wholeWord_check = tk.BooleanVar(value=False)
-        self.wrapAround_check = tk.BooleanVar(value=False)
+        self.wrapAround_check = tk.BooleanVar(value=True)
 
         checkbox = tk.Checkbutton(self.find_frame2, text="Match case",  variable=self.matchCase_check).grid(row=0, column=1, sticky="w")
         checkbox = tk.Checkbutton(self.find_frame2, text="Whole word",  variable=self.wholeWord_check).grid(row=1, column=1, sticky="w")
@@ -404,6 +402,11 @@ class HexEditor:
         self.last_search_pos = 0
         self.find_window.protocol("WM_DELETE_WINDOW", self.on_close_search)
 
+        self.get_selection()
+        self.on_mode_change()
+        self._last_query = None
+        self._last_mode = None
+
     def get_search_options(self):
             return {
                 "_case":  self.matchCase_check.get(),
@@ -418,10 +421,12 @@ class HexEditor:
             self.ascii_entry.config(state="normal")
             self.hex_entry.config(state="disabled")
             self.ascii_entry.focus_set()
+            self.ascii_entry.icursor(tk.END)
         else:
             self.ascii_entry.config(state="disabled")
             self.hex_entry.config(state="normal")
             self.hex_entry.focus_set()
+            self.hex_entry.icursor(tk.END)
 
     def text_to_hex(self):
         text = self.string_ascii.get()
@@ -445,7 +450,10 @@ class HexEditor:
 
         # HEX → ASCII
         data = bytes.fromhex(_hex)
-        text_str = data.decode("ascii")
+        text_str = ''.join(
+            chr(b) if 0x20 <= b <= 0x7E else '.'
+            for b in data
+            )
 
         self.mode.set("ascii")
         self.on_mode_change()
@@ -459,33 +467,6 @@ class HexEditor:
         self.find_window.grab_release()
         self.find_window.destroy()
 
-    def get_search_string(self):
-        selected = self.selected_text
-        if selected:
-            _str = selected.replace(" ", "").strip()
-            if len(_str) >=2 and len(_str) % 2 == 0 \
-               and all(c in "0123456789ABCDEFabcdef " for c in _str):
-                self.string_hex.set(_str)
-                return _str, "hex"
-
-            self.string_ascii.set(_str)
-            return _str, "ascii"
-        
-        if self.mode.get() == "ascii":
-            return self.string_ascii.get(), "ascii"
-        else:
-            return self.string_hex.get(), "hex"
-
-    def get_selected_text(self):
-        try:
-            selected_text = self.hex_text_widget.get(tk.SEL_FIRST, tk.SEL_LAST)
-            selection_begin = self.hex_text_widget.index(tk.SEL_FIRST)
-            selection_end = self.hex_text_widget.index(tk.SEL_LAST)
-            self.get_selection() # <=== Temp! For test only!
-            return selected_text
-        except tk.TclError:
-            return ''
-
     def get_selection(self):
         # Combination of get_search_string and get_selected_text
 
@@ -495,14 +476,33 @@ class HexEditor:
             selection_end = self.hex_text_widget.index(tk.SEL_LAST)
         except tk.TclError:
             return '', 'hex'
-        row, col = map(int, selection_begin.split('.'))
-        byte_first = self.hex_format.position_to_byte(row, col)
-        row, col = map(int, selection_end.split('.'))
-        byte_last = self.hex_format.position_to_byte(row, col)
-        selected_text = bytes_to_str(self.file_data[byte_first:byte_last+1])
-        selected_hex = ' '.join([f'{b:0X}' for b in self.file_data[byte_first:byte_last+1]])
-        print('Selected text:', selected_text)
-        print('Selected hex:', selected_hex)
+        
+        row1, col1 = map(int, selection_begin.split('.'))
+        byte_first = self.hex_format.position_to_byte(row1, col1)
+        row2, col2 = map(int, selection_end.split('.'))
+        byte_last = self.hex_format.position_to_byte(row2, col2)
+
+        if col1 >= self.hex_format.tail_pos:
+            self.mode.set("ascii")
+        else:
+            self.mode.set("hex")
+
+        self.on_mode_change()
+
+        data = self.file_data[byte_first:byte_last+1]
+
+        if not data: return '', self.mode.get()
+
+        if self.mode.get() == "hex":
+            selected_str = bytes_to_hex(data)
+            self.string_hex.set(selected_str)
+            print('Selected hex:', selected_str)
+        else: 
+            selected_str = bytes_to_str(data)
+            self.string_ascii.set(selected_str)
+            print('Selected text:', selected_str)
+
+        return selected_str, self.mode.get()        
         
     def search_query(self, query, mode):
         query = query.strip()
@@ -518,7 +518,8 @@ class HexEditor:
 
     def next_match(self, direction):
         options = self.get_search_options()
-        query, mode = self.get_search_string()
+        query, mode = self.get_selection()
+
         search_bytes = self.search_query(query, mode)
         
         if not search_bytes or not self.file_data:
@@ -556,9 +557,9 @@ class HexEditor:
 
         if found is not None:
             if direction == "down":
-                self.last_search_pos = found + 1
+                self.last_search_pos = found + len(search_bytes)
             else:
-                self.last_search_pos = found - 1
+                self.last_search_pos = max(0, found - len(search_bytes))
             # Підсвітка
             self.hex_format.clear_highlight(self.hex_text_widget, Highlight.SELECTED)
             bytes_hl.data[Highlight.SELECTED].bytes.clear()

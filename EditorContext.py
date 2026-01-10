@@ -30,10 +30,13 @@ class Highlight:
 bytes_hl = Highlight()  
 
 def one_byte_to_ascii(b):
-    return chr(b) if 0x1F < b < 0x80 else '.'
+    return chr(b) if 0x20 < b < 0x7E else '.'
 
 def bytes_to_str(bytes_:list):
-    return ''.join([one_byte_to_ascii(b) for b in bytes_])
+    return ''.join(one_byte_to_ascii(b) for b in bytes_)
+
+def bytes_to_hex(bytes_: list):
+    return ' '.join(f"{b:02X}" for b in bytes_)
 
 def test_many_positions(lenght, *positions):
         res = [' ']*lenght
