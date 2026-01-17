@@ -4,13 +4,15 @@ import tkinter as tk
 from tkinter import filedialog, scrolledtext
 from window import *
 from EditorContext import *
+from SearchDialog import SearchDialog
+
 
 class HexEditor:
     def __init__(self, root):
         self.root = root
         self.root.title("Hex Editor")
         win_to_center(root, 760, 360)
-        
+
         self.side = 1
         self.hex_text_widget = scrolledtext.ScrolledText(root, wrap=tk.NONE)
         self.hex_text_widget.pack(fill=tk.BOTH, expand=True)
@@ -18,6 +20,8 @@ class HexEditor:
 
         self.path_to_file = None
         self.file_data = bytearray()
+
+        self.search_dialog_obj = SearchDialog(self)
 
         tags = list(self.hex_text_widget.bindtags())
         print(f'tags:{tags}')
@@ -27,7 +31,6 @@ class HexEditor:
         
         self.root.bind("<Configure>", self.on_resize)
 
-        
         self.hex_text_widget.bind_class("post-click1", '<Button-1>', self.scrolling)
         self.hex_text_widget.bind('<Control-z>', self.ctrl_z)
         self.hex_text_widget.bind('<Control-Z>', self.ctrl_z)
@@ -274,6 +277,7 @@ class HexEditor:
             self.hex_format = get_hex_format(self.update_display_size())
             self.show_file()
             self.restore_highlight()
+            self.search_dialog_obj.hex_format = self.hex_format
                
     def update_display_size(self):
         '''
@@ -294,10 +298,19 @@ class HexEditor:
             try:
                 with open(path, 'rb') as f:
                     self.file_data = bytearray(f.read())
+                    
+                self.search_dialog_obj.file_data = self.file_data
+                self.search_dialog_obj.last_search_pos = 0
                 self.on_resize(None)
                 
             except FileNotFoundError as err:
                 print(f'{err}')
+
+    def search_dialog(self):
+        self.search_dialog_obj.show_search_dialog()
+
+    def find_again(self):
+        self.search_dialog_obj.find_again()
 
     def new_file(self):
         pass
@@ -324,258 +337,6 @@ class HexEditor:
                 f.write(self.file_data)
             self.root.title(f"Hex Editor - {path}")
             self.path_to_file = path
-
-    def search_dialog(self):
-        if hasattr(self, "find_window") and self.find_window.winfo_exists():
-            self.find_window.lift()
-            self.find_window.focus_set()
-            return
-        self.find_window = tk.Toplevel(self.root)
-        self.find_window.title("Search Dialog")
-        self.find_window.resizable(False, False)
-        self.find_window.transient(self.root)
-        self.find_window.grab_set()
-        
-## Frame Find
-        self.find_frame = tk.LabelFrame(
-            self.find_window,
-            text="Find",
-            padx=5,
-            pady=5
-        )
-        self.find_frame.grid(row=0, column=0, columnspan=3, rowspan=2, sticky="wens", padx=5, pady=5)
-        
-        self.mode = tk.StringVar(value="ascii")
-        tk.Radiobutton(self.find_frame, text = "Text string", variable=self.mode, value="ascii", command=self.on_mode_change).grid(row=0, column=0, sticky='w', padx=0, pady=0)
-        tk.Radiobutton(self.find_frame, text = "Hex string", variable=self.mode, value="hex", command=self.on_mode_change).grid(row=2, column=0, sticky='w', padx=0, pady=0)
-
-        tk.Button(self.find_frame, text="Text->Hex",  width=8, height=1, command=self.text_to_hex
-                  ).grid(row=0, column=1, columnspan=2, sticky='we', padx=1, pady=1)
-        tk.Button(self.find_frame, text="Hex->Text", width=8, height=1, command=self.hex_to_text
-                  ).grid(row=2, column=1, columnspan=2, sticky='we', padx=1, pady=1)
-        
-        self.string_ascii = tk.StringVar()
-        self.ascii_entry = tk.Entry(self.find_frame, textvariable=self.string_ascii, width=45)
-        self.ascii_entry.grid(row=1, column=0, columnspan=3, sticky="w", padx=0, pady=0)
-        
-        self.string_hex = tk.StringVar()
-        self.hex_entry = tk.Entry(self.find_frame, textvariable=self.string_hex, width=45)
-        self.hex_entry.grid(row=3, column=0, columnspan=3, sticky="w", padx=0, pady=0)
-        
-## Frame Options
-        self.find_frame2 = tk.LabelFrame(
-                    self.find_window,
-                    text="Options",
-                    padx=5,
-                    pady=5
-                )
-        self.find_frame2.grid(row=2, column=0, columnspan=2, sticky="wens", padx=5, pady=5)
-
-        self.matchCase_check = tk.BooleanVar(value=False)
-        self.wholeWord_check = tk.BooleanVar(value=False)
-        self.wrapAround_check = tk.BooleanVar(value=True)
-
-        checkbox = tk.Checkbutton(self.find_frame2, text="Match case",  variable=self.matchCase_check).grid(row=0, column=1, sticky="w")
-        checkbox = tk.Checkbutton(self.find_frame2, text="Whole word",  variable=self.wholeWord_check).grid(row=1, column=1, sticky="w")
-        checkbox = tk.Checkbutton(self.find_frame2, text="Wrap around", variable=self.wrapAround_check).grid(row=2, column=1, sticky="w")
-        
-## Frame Scope from
-        self.find_frame3 = tk.LabelFrame(
-            self.find_window,
-            text="Scope from",
-            padx=5,
-            pady=5
-        )
-        self.find_frame3.grid(row=2, column=2, columnspan=2, sticky="wens", padx=5, pady=5)
-        self.scope_mode = tk.StringVar(value="cursor")
-        tk.Radiobutton(self.find_frame3, text="Cursor", variable=self.scope_mode, value="cursor").grid(row=0, column=3, sticky="w")
-        tk.Radiobutton(self.find_frame3, text="Begin", variable=self.scope_mode, value="begin").grid(row=1, column=3, sticky="w")
-
-        tk.Button(self.find_window, text="Next", width=6, command=lambda: self.next_match("down")
-                  ).grid(row=3, column=0, columnspan=1, sticky="we", padx=5, pady=5)
-        tk.Button(self.find_window, text="Prev", width=6, command=lambda: self.next_match("up")
-                  ).grid(row=3, column=1, columnspan=1, sticky="we", padx=5, pady=5)
-        tk.Button(self.find_window, text="Cancel", width=6, command=self.on_close_search
-                  ).grid(row=3, column=2, columnspan=1, sticky="we", padx=5, pady=5)
-        
-        self.hex_text_widget.tag_remove("search_match", "1.0", tk.END)
-        self.last_search_pos = 0
-        self.find_window.protocol("WM_DELETE_WINDOW", self.on_close_search)
-
-        self.get_selection()
-        self.on_mode_change()
-        self._last_query = None
-        self._last_mode = None
-
-    def get_search_options(self):
-            return {
-                "_case":  self.matchCase_check.get(),
-                "_word":  self.wholeWord_check.get(),
-                "_wrap":  self.wrapAround_check.get(),
-                "_scope": self.scope_mode.get(),
-                "_mode": self.mode.get(),
-            }
-        
-    def on_mode_change(self):
-        if self.mode.get() == "ascii":
-            self.ascii_entry.config(state="normal")
-            self.hex_entry.config(state="disabled")
-            self.ascii_entry.focus_set()
-            self.ascii_entry.icursor(tk.END)
-        else:
-            self.ascii_entry.config(state="disabled")
-            self.hex_entry.config(state="normal")
-            self.hex_entry.focus_set()
-            self.hex_entry.icursor(tk.END)
-
-    def text_to_hex(self):
-        text = self.string_ascii.get()
-        if not text:
-            return
-
-        # ASCII → HEX
-        hex_str = " ".join(f"{ord(c):02X}" for c in text)
-
-        self.mode.set("hex")
-        self.on_mode_change()
-
-        self.string_hex.set(hex_str)
-        self.hex_entry.focus_set()
-        self.hex_entry.icursor(tk.END)
-
-    def hex_to_text(self):
-        _hex = self.string_hex.get().strip()
-        if not _hex:
-            return
-
-        # HEX → ASCII
-        data = bytes.fromhex(_hex)
-        text_str = ''.join(
-            chr(b) if 0x20 <= b <= 0x7E else '.'
-            for b in data
-            )
-
-        self.mode.set("ascii")
-        self.on_mode_change()
-
-        self.string_ascii.set(text_str)
-        self.ascii_entry.focus_set()
-        self.ascii_entry.icursor(tk.END)
-        
-    def on_close_search(self):
-        self.selected_text = None
-        self.find_window.grab_release()
-        self.find_window.destroy()
-
-    def get_selection(self):
-        # Combination of get_search_string and get_selected_text
-
-        # Get raw
-        try:
-            selection_begin = self.hex_text_widget.index(tk.SEL_FIRST)
-            selection_end = self.hex_text_widget.index(tk.SEL_LAST)
-        except tk.TclError:
-            return '', 'hex'
-        
-        row1, col1 = map(int, selection_begin.split('.'))
-        byte_first = self.hex_format.position_to_byte(row1, col1)
-        row2, col2 = map(int, selection_end.split('.'))
-        byte_last = self.hex_format.position_to_byte(row2, col2)
-
-        if col1 >= self.hex_format.tail_pos:
-            self.mode.set("ascii")
-        else:
-            self.mode.set("hex")
-
-        self.on_mode_change()
-
-        data = self.file_data[byte_first:byte_last+1]
-
-        if not data: return '', self.mode.get()
-
-        if self.mode.get() == "hex":
-            selected_str = bytes_to_hex(data)
-            self.string_hex.set(selected_str)
-            print('Selected hex:', selected_str)
-        else: 
-            selected_str = bytes_to_str(data)
-            self.string_ascii.set(selected_str)
-            print('Selected text:', selected_str)
-
-        return selected_str, self.mode.get()        
-        
-    def search_query(self, query, mode):
-        query = query.strip()
-        if not query:
-            return None
-        if mode == "hex":
-            hex_check = query.replace(" ", "")
-            if len(hex_check) % 2 != 0:
-                return None
-            return bytearray.fromhex(hex_check)
-
-        return bytearray(query, "ascii")
-
-    def next_match(self, direction):
-        options = self.get_search_options()
-        query, mode = self.get_selection()
-
-        search_bytes = self.search_query(query, mode)
-        
-        if not search_bytes or not self.file_data:
-            return
-        
-        data_len = len(self.file_data)
-        
-        if options["_scope"]=="begin":
-            start_index = 0 if direction == "down" else data_len - 1
-        else:
-            start_index = self.last_search_pos
-
-        found = None
-        if direction == "down":
-            rng = range(start_index, data_len - len(search_bytes) + 1)
-        else:
-            rng = range(start_index, -1, -1)
-            
-        for i in rng:
-            if self.file_data[i:i+len(search_bytes)] == search_bytes:
-                found = i
-                break
-            
-        if found is None and options["_wrap"]:
-            # До кінця не знайшли. Шукаємо з початку
-            if direction == "down":
-                rng = range(0, start_index)
-            else:
-                rng = range(data_len - len(search_bytes), start_index, -1)
-                
-            for i in rng:
-                if self.file_data[i:i+len(search_bytes)] == search_bytes:
-                    found = i
-                    break
-
-        if found is not None:
-            if direction == "down":
-                self.last_search_pos = found + len(search_bytes)
-            else:
-                self.last_search_pos = max(0, found - len(search_bytes))
-            # Підсвітка
-            self.hex_format.clear_highlight(self.hex_text_widget, Highlight.SELECTED)
-            bytes_hl.data[Highlight.SELECTED].bytes.clear()
-            
-            for b in range(found, found + len(search_bytes)):
-                bytes_hl.data[Highlight.SELECTED].bytes.add(b)
-                
-            self.hex_format.highlight(self.hex_text_widget, Highlight.SELECTED)
-            line, hex_start_col, hex_end_col, ascii_start_col = self.hex_format.byte_coloring_positions(found)
-            self.hex_text_widget.mark_set(tk.INSERT, f"{line}.{hex_start_col}")
-            self.hex_text_widget.see(f"{line}.{hex_start_col}")
-        else:
-            tk.messagebox.showinfo("!", "No matches found.")
-
-    def find_again(self):
-        pass
     
     def show_file(self):
         self.hex_data = hex_print(self.file_data, self.update_display_size())
