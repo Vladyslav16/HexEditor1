@@ -152,7 +152,7 @@ class HexFormat:
             col -= len(self.separator)
             col = max(col, self.sep_pos)
 
-        return row_bytes + (col - self.hex_pos) // 3
+        return row_bytes + (col - self.hex_pos + 2) // 3
        
     def byte_to_tkinter_coords(self, byte, side):
         line, hex_start_col, hex_end_col, ascii_start_col = self.byte_coloring_positions(byte)
