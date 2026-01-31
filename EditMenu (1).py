@@ -1,7 +1,6 @@
 import tkinter as tk
 from window import *
 from EditorContext import *
-from tkinter import messagebox
 
 class EditMenu:
     HEX = 'hex'
@@ -20,76 +19,70 @@ class EditMenu:
         self.wholeWord_check = tk.BooleanVar(value=False)
         self.wrapAround_check = tk.BooleanVar(value=True)
 
- 
         self.string_ascii = tk.StringVar()
         self.string_hex = tk.StringVar()
         
         self.last_search_pos = None
         self._last_query = None
         self._last_mode = None
-        self._last_direction = "down"
 
-        self.search_dialog = tk.Toplevel(self.root)
-        self.search_dialog.title("Search Dialog")
-        self.search_dialog.resizable(False, False)
-        self.search_dialog.transient(self.root)
-        self.search_dialog.withdraw()
-
-        self.build_search_dialog(self.search_dialog)
-
-        self.search_dialog.protocol(
-            "WM_DELETE_WINDOW",
-            lambda window=self.search_dialog: self.hide_dialog(window)
-        )
-
-        self.replace_dialog = tk.Toplevel(self.root)
-        self.replace_dialog.title("Replace Dialog")
-        self.replace_dialog.resizable(False, False)
-        self.replace_dialog.transient(self.root)
-        self.replace_dialog.withdraw()
-
-        self.build_replace_dialog(self.replace_dialog)
-
-        self.replace_dialog.protocol(
-            "WM_DELETE_WINDOW",
-            lambda window=self.replace_dialog: self.hide_dialog(window)
-        )
-
-        self.dialog_type = None
-        self.ascii_entry = None
-        self.hex_entry = None
-        self.whole_word_checkbox = None
-        
+##TODO
+##        self.search_dialog = self.build_search_dialog()
+##        self.replace_dialog = self.build_replace_dialog()
 
     def on_open_file(self, file_data):
         self.file_data = file_data
         self.last_search_pos = None
 
+    def get_dialog(self):
+        class Dialog:
+            def __init__(self, dialog:EditMenu):
+                self.search_dialog  = None
+                self.replace_dialog  = None
+        return Dialog(self)
+
     def show_dialog(self, dialog_type: str):
-        dialogs = {
-                "search": self.search_dialog,
-                "replace": self.replace_dialog
-            }
-        dialog = dialogs.get(dialog_type)
-       
-        if dialog_type:
-            try:
-                self.dialog_type = dialog_type
-                self.ascii_entry = getattr(self, f"{self.dialog_type}_ascii_entry")
-                self.hex_entry = getattr(self, f"{self.dialog_type}_hex_entry")
-                self.whole_word_checkbox = getattr(self, f"{self.dialog_type}_whole_word_checkbox")
 
-                self.get_selection()
-                self.on_mode_change()
+##TODO        
+##        if dialog_type == "search_dialog":
+##            window = self.search_dialog
+##        elif dialog_type ==  "replace_dialog":
+##            window = self.replace_dialog
+##        else:
+##            raise ValueError(f"Unknown dialog type: {dialog_type}")
 
-                dialog.deiconify()
-                dialog.lift()
-                dialog.focus_set()
-                dialog.grab_set()   
-            except AttributeError:  
-                print(f'There are no widgets for this "{self.dialog_type}" dialog.')
-                return
-                  
+
+        
+        dialog = self.get_dialog()
+        if dialog_type ==  "search_dialog":
+            window = dialog.search_dialog
+        elif dialog_type ==  "replace_dialog":
+            window = dialog.replace_dialog
+        else:
+            raise ValueError(f"Unknown dialog type: {dialog_type}")
+
+        if window and window.winfo_exists():
+            window.lift()
+            window.focus_set()
+            return
+
+        window = tk.Toplevel(self.root)
+        window.resizable(False, False)
+        window.transient(self.root)
+        window.grab_set()
+        
+        if dialog_type == "search_dialog":
+            window.title("Search dialog")
+            dialog.search_dialog = window
+            self.build_search_dialog(window)
+
+        elif dialog_type == "replace_dialog":
+            window.title("Replace dialog")
+            dialog.replace_dialog = window
+            self.build_replace_dialog(window)
+            
+        
+        
     def build_search_dialog(self, parent):
 ## Frame Find
         find_frame = tk.LabelFrame(
@@ -98,7 +91,7 @@ class EditMenu:
             padx=5,
             pady=5
         )
-        find_frame.grid(row=0, column=0, columnspan=2, sticky="wens", padx=5, pady=5)
+        find_frame.grid(row=0, column=0, columnspan=3, rowspan=2, sticky="wens", padx=5, pady=5)
         
         tk.Radiobutton(find_frame, text = "Text string", variable=self.mode, value=EditMenu.ASCII, command=self.on_mode_change
                        ).grid(row=0, column=0, sticky='w', padx=0, pady=0)
@@ -110,11 +103,11 @@ class EditMenu:
         tk.Button(find_frame, text="Hex->Text", width=8, height=1, command=self.hex_to_text
                   ).grid(row=2, column=1, columnspan=2, sticky='we', padx=1, pady=1)
         
-        self.search_ascii_entry = tk.Entry(find_frame, textvariable=self.string_ascii, width=50)
-        self.search_ascii_entry.grid(row=1, column=0, columnspan=3, sticky="we", padx=0, pady=0)
+        self.ascii_entry = tk.Entry(find_frame, textvariable=self.string_ascii, width=45)
+        self.ascii_entry.grid(row=1, column=0, columnspan=3, sticky="w", padx=0, pady=0)
         
-        self.search_hex_entry = tk.Entry(find_frame, textvariable=self.string_hex)
-        self.search_hex_entry.grid(row=3, column=0, columnspan=3, sticky="we", padx=0, pady=0)
+        self.hex_entry = tk.Entry(find_frame, textvariable=self.string_hex, width=45)
+        self.hex_entry.grid(row=3, column=0, columnspan=3, sticky="w", padx=0, pady=0)
         
 ## Frame Options
         opt_frame = tk.LabelFrame(
@@ -123,14 +116,14 @@ class EditMenu:
                     padx=5,
                     pady=5
                 )
-        opt_frame.grid(row=1, column=0, sticky="wens", padx=5, pady=5)
+        opt_frame.grid(row=2, column=0, columnspan=2, sticky="wens", padx=5, pady=5)
 
-        self.search_match_case_checkbox = tk.Checkbutton(opt_frame, text="Match case", variable=self.matchCase_check)
-        self.search_match_case_checkbox.grid(row=0, column=1, sticky="w")
-        self.search_whole_word_checkbox = tk.Checkbutton(opt_frame, text="Whole word", variable=self.wholeWord_check)
-        self.search_whole_word_checkbox.grid(row=1, column=1, sticky="w")
-        self.search_wrap_around_checkbox = tk.Checkbutton(opt_frame, text="Wrap around", variable=self.wrapAround_check)
-        self.search_wrap_around_checkbox.grid(row=2, column=1, sticky="w")
+        self.match_case_checkbox = tk.Checkbutton(opt_frame, text="Match case", variable=self.matchCase_check)
+        self.match_case_checkbox.grid(row=0, column=1, sticky="w")
+        self.whole_word_checkbox = tk.Checkbutton(opt_frame, text="Whole word", variable=self.wholeWord_check)
+        self.whole_word_checkbox.grid(row=1, column=1, sticky="w")
+        self.whap_around_checkbox = tk.Checkbutton(opt_frame, text="Wrap around", variable=self.wrapAround_check)
+        self.whap_around_checkbox.grid(row=2, column=1, sticky="w")
         
 ## Frame Scope from
         scope_frame = tk.LabelFrame(
@@ -139,27 +132,25 @@ class EditMenu:
             padx=5,
             pady=5
         )
-        scope_frame.grid(row=1, column=1, sticky="wens", padx=5, pady=5)
+        scope_frame.grid(row=2, column=2, columnspan=2, sticky="wens", padx=5, pady=5)
         
         tk.Radiobutton(scope_frame, text="Cursor", variable=self.scope_mode, value="cursor"
-                       ).grid(row=0, column=0, sticky="w")
+                       ).grid(row=0, column=3, sticky="w")
         tk.Radiobutton(scope_frame, text="Begin", variable=self.scope_mode, value="begin"
-                       ).grid(row=1, column=0, sticky="w")
-## Frame Buttons
-        buttons_frame = tk.LabelFrame(
-            parent,
-            text=" ",
-            padx=5,
-            pady=5
-        )
-        buttons_frame.grid(row=0, column=2, rowspan=2, sticky='wens', padx=5, pady=5)
+                       ).grid(row=1, column=3, sticky="w")
 
-        tk.Button(buttons_frame, text="Close", command=lambda window=parent: self.hide_dialog(window)
-                  ).grid(row=0, column=2, sticky="we", padx=5, pady=5)
-        tk.Button(buttons_frame, text="FindDown", command=lambda: self.next_match("down")
-                  ).grid(row=1, column=2, sticky="we", padx=5, pady=5)
-        tk.Button(buttons_frame, text="FindUp", command=lambda: self.next_match("up")
-                  ).grid(row=2, column=2, sticky="we", padx=5, pady=5)
+        tk.Button(parent, text="Next", width=6, command=lambda: self.next_match("down")
+                  ).grid(row=3, column=0, columnspan=1, sticky="we", padx=5, pady=5)
+        tk.Button(parent, text="Prev", width=6, command=lambda: self.next_match("up")
+                  ).grid(row=3, column=1, columnspan=1, sticky="we", padx=5, pady=5)
+        tk.Button(parent, text="Cancel", width=6, command=lambda window=parent: self.on_close_dialog(window)
+                  ).grid(row=3, column=2, columnspan=1, sticky="we", padx=5, pady=5)
+
+        parent.protocol("WM_DELETE_WINDOW",
+                lambda window=parent: self.on_close_dialog(window))
+
+        self.get_selection()
+        self.on_mode_change()
 
     def get_search_options(self):
         class Options:
@@ -220,9 +211,18 @@ class EditMenu:
         self.ascii_entry.focus_set()
         self.ascii_entry.icursor(tk.END)
         
-    def hide_dialog(self, window: tk.Toplevel):
-        window.grab_release()
-        window.withdraw()
+    def on_close_dialog(self, window: tk.Toplevel):
+        dialog = self.get_dialog()
+        self.selected_text = None
+        
+        if window and window.winfo_exists():
+            window.grab_release()
+            window.destroy()
+            
+        if window == dialog.search_dialog:
+            dialog.search_dialog = None
+        elif window == dialog.replace_dialog:
+            dialog.replace_dialog = None
 
     def get_selection(self):
         try:
@@ -267,17 +267,15 @@ class EditMenu:
         return bytearray(query, "ascii")
 
     def next_match(self, direction):
-        self._last_direction = direction
         options = self.get_search_options()
         
-        mode = self.mode.get()
-        query = self.string_ascii.get() if mode == EditMenu.ASCII else self.string_hex.get()
+        query, mode = None, None
         
-        if not query:
-            return
-        
-        self._last_query = query
-        self._last_mode  = mode
+        if self.search_dialog and self.search_dialog.winfo_exists():
+            mode = self.mode.get()
+            query = self.string_ascii.get() if mode == EditMenu.ASCII else self.string_hex.get()
+        else:
+            query, mode = self.get_selection()
 
         search_bytes = self.search_query(query, mode)
         
@@ -303,10 +301,6 @@ class EditMenu:
             
         for i in rng:
             if self.file_data[i:i+search_bytes_len] == search_bytes:
-## TODO: Option Whole word
-                if options.word:
-                    if not self.check_whole_word(i, search_bytes_len):
-                        continue
                 found = i
                 break
             
@@ -337,20 +331,9 @@ class EditMenu:
         else:
             tk.messagebox.showinfo("!", "No matches found.")
 
-    def check_whole_word(self, pos, length):
+    def find_again(self):
         pass
 
-    def find_again(self):
-        direction = self._last_direction
-        if self._last_query is None or self._last_mode is None:
-            return
-        if self._last_mode == EditMenu.ASCII:
-            self.string_ascii.set(self._last_query)
-        else:
-            self.string_hex.set(self._last_query)
-
-        self.mode.set(self._last_mode)
-        self.next_match(direction)
 
     def build_replace_dialog(self, parent):
 ## Frame Find+Replace
@@ -360,7 +343,7 @@ class EditMenu:
             padx=5,
             pady=5
         )
-        find_frame.grid(row=0, column=0, columnspan=2, sticky="wens", padx=5, pady=5)
+        find_frame.grid(row=0, column=0, columnspan=4, rowspan=2, sticky="wens", padx=5, pady=5)
         
         tk.Radiobutton(find_frame, text = "Text string", variable=self.mode, value=EditMenu.ASCII, command=self.on_mode_change
                        ).grid(row=0, column=0, sticky='w', padx=0, pady=0)
@@ -372,17 +355,18 @@ class EditMenu:
         tk.Button(find_frame, text="Hex->Text", width=8, height=1, command=self.hex_to_text
                   ).grid(row=2, column=1, columnspan=2, sticky='we', padx=1, pady=1)
         
-        self.replace_ascii_entry = tk.Entry(find_frame, textvariable=self.string_ascii)
-        self.replace_ascii_entry.grid(row=1, column=0, columnspan=3, sticky="we", padx=0, pady=0)
+        self.ascii_entry = tk.Entry(find_frame, textvariable=self.string_ascii, width=45)
+        self.ascii_entry.grid(row=1, column=0, columnspan=3, sticky="w", padx=0, pady=0)
         
-        self.replace_hex_entry = tk.Entry(find_frame, textvariable=self.string_hex)
-        self.replace_hex_entry.grid(row=3, column=0, columnspan=3, sticky="we", padx=0, pady=0)
+        self.hex_entry = tk.Entry(find_frame, textvariable=self.string_hex, width=45)
+        self.hex_entry.grid(row=3, column=0, columnspan=3, sticky="w", padx=0, pady=0)
 
-        tk.Label(find_frame, text="Replace with:").grid(row=4, column=0, columnspan=3, sticky="w", padx=0, pady=0)
+        tk.Label(find_frame, text="Replace with:").grid(row=4, column=0, columnspan=3, sticky="w", padx=5, pady=(5, 0))
 
-        self.replace_entry = tk.Entry(find_frame, textvariable=self.string_ascii, width=50)
-        self.replace_entry.grid(row=5, column=0, columnspan=3, sticky="we", padx=0, pady=0)
+        self.replace_entry = tk.Entry(find_frame, textvariable=self.string_ascii, width=45)
+        self.replace_entry.grid(row=5, column=0, columnspan=3, sticky="w", padx=5, pady=5)
         
+
 ## Frame Options
         opt_frame = tk.LabelFrame(
                     parent,
@@ -390,14 +374,14 @@ class EditMenu:
                     padx=5,
                     pady=5
                 )
-        opt_frame.grid(row=1, column=0, sticky="wens", padx=5, pady=5)
+        opt_frame.grid(row=2, column=0, columnspan=2, sticky="wens", padx=5, pady=5)
 
-        self.replace_match_case_checkbox = tk.Checkbutton(opt_frame, text="Match case", variable=self.matchCase_check)
-        self.replace_match_case_checkbox.grid(row=0, column=1, sticky="w")
-        self.replace_whole_word_checkbox = tk.Checkbutton(opt_frame, text="Whole word", variable=self.wholeWord_check)
-        self.replace_whole_word_checkbox.grid(row=1, column=1, sticky="w")
-        self.replace_wrap_around_checkbox = tk.Checkbutton(opt_frame, text="Wrap around", variable=self.wrapAround_check)
-        self.replace_wrap_around_checkbox.grid(row=2, column=1, sticky="w")
+        checkbox = tk.Checkbutton(opt_frame, text="Match case", variable=self.matchCase_check
+                                  ).grid(row=0, column=1, sticky="w")
+        checkbox = tk.Checkbutton(opt_frame, text="Whole word", variable=self.wholeWord_check
+                                  ).grid(row=1, column=1, sticky="w")
+        checkbox = tk.Checkbutton(opt_frame, text="Wrap around", variable=self.wrapAround_check
+                                  ).grid(row=2, column=1, sticky="w")
         
 ## Frame Scope from
         scope_frame = tk.LabelFrame(
@@ -406,29 +390,26 @@ class EditMenu:
             padx=5,
             pady=5
         )
-        scope_frame.grid(row=1, column=1, sticky="wens", padx=5, pady=5)
+        scope_frame.grid(row=2, column=2, columnspan=2, sticky="wens", padx=5, pady=5)
         
         tk.Radiobutton(scope_frame, text="Cursor", variable=self.scope_mode, value="cursor"
-                       ).grid(row=0, column=0, sticky="w")
+                       ).grid(row=0, column=3, sticky="w")
         tk.Radiobutton(scope_frame, text="Begin", variable=self.scope_mode, value="begin"
-                       ).grid(row=1, column=0, sticky="w")
-## Frame Buttons
-        buttons_frame = tk.LabelFrame(
-            parent,
-            text=" ",
-            padx=5,
-            pady=5
-        )
-        buttons_frame.grid(row=0, column=2, rowspan=2, sticky='wens', padx=5, pady=5)
+                       ).grid(row=1, column=3, sticky="w")
 
-        tk.Button(buttons_frame, text="Close", command=lambda window=parent: self.hide_dialog(window)
-                  ).grid(row=0, column=2, sticky="we", padx=5, pady=5)
-        tk.Button(buttons_frame, text="Replace+FindDown", command=lambda: self.next_match("down")
-                  ).grid(row=1, column=2, sticky="we", padx=5, pady=5)
-        tk.Button(buttons_frame, text="Replace+FindUp", command=lambda: self.next_match("up")
-                  ).grid(row=2, column=2, sticky="we", padx=5, pady=5)
-##        TODO:
-##        Replace + ALL
-        tk.Button(buttons_frame, text="ReplaceAll", command=lambda: self.next_match("up")
-                  ).grid(row=3, column=2, sticky="we", padx=5, pady=5)
+        tk.Button(parent, text="Replace+FNext", width=10, command=lambda: self.next_match("down")
+                  ).grid(row=3, column=0, columnspan=1, sticky="we", padx=5, pady=5)
+        tk.Button(parent, text="Replace+FPrev", width=10, command=lambda: self.next_match("up")
+                  ).grid(row=3, column=1, columnspan=1, sticky="we", padx=5, pady=5)
+        tk.Button(parent, text="ReplaceAll", width=10, command=lambda: self.next_match("up")
+                  ).grid(row=3, column=2, columnspan=1, sticky="we", padx=5, pady=5)
+        
+        tk.Button(parent, text="Cancel", width=10, command=lambda window=parent: self.on_close_dialog(window)
+                  ).grid(row=3, column=3, columnspan=1, sticky="we", padx=5, pady=5)
+
+        parent.protocol("WM_DELETE_WINDOW",
+                lambda window=parent: self.on_close_dialog(window))
+
+        self.get_selection()
+        self.on_mode_change()
         
