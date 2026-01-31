@@ -308,7 +308,7 @@ class HexEditor:
                 print(f'{err}')
 
     def search_dialog(self):
-        self.edit_menu_obj.show_dialog("sdfsd")
+        self.edit_menu_obj.show_dialog("search")
 
     def replace_dialog(self):
         self.edit_menu_obj.show_dialog("replace")

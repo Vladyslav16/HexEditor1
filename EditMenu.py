@@ -20,6 +20,7 @@ class EditMenu:
         self.wholeWord_check = tk.BooleanVar(value=False)
         self.wrapAround_check = tk.BooleanVar(value=True)
 
+ 
         self.string_ascii = tk.StringVar()
         self.string_hex = tk.StringVar()
         
