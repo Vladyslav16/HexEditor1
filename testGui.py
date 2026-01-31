@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, scrolledtext
 from window import *
 from EditorContext import *
-from SearchDialog import SearchDialog
+from EditMenu import EditMenu
 
 
 class HexEditor:
@@ -21,7 +21,7 @@ class HexEditor:
         self.path_to_file = None
         self.file_data = bytearray()
 
-        self.search_dialog_obj = SearchDialog(self)
+        self.edit_menu_obj = EditMenu(self)
 
         tags = list(self.hex_text_widget.bindtags())
         print(f'tags:{tags}')
@@ -55,7 +55,9 @@ class HexEditor:
                 },
             'Edit': {
                 'Find...':    {'combination': 'Ctrl+F',   'command': self.search_dialog},
-                'Find Again': {'combination': 'Ctrl+G',   'command': self.find_again}
+                'Find Again': {'combination': 'Ctrl+G',   'command': self.find_again},
+                'Replace...': {'combination': 'Ctrl+H',   'command': self.replace_dialog},
+                
             }
             }
         self.create_menu()
@@ -277,7 +279,7 @@ class HexEditor:
             self.hex_format = get_hex_format(self.update_display_size())
             self.show_file()
             self.restore_highlight()
-            self.search_dialog_obj.hex_format = self.hex_format
+            self.edit_menu_obj.hex_format = self.hex_format
                
     def update_display_size(self):
         '''
@@ -299,18 +301,20 @@ class HexEditor:
                 with open(path, 'rb') as f:
                     self.file_data = bytearray(f.read())
                     
-                self.search_dialog_obj.file_data = self.file_data
-                self.search_dialog_obj.last_search_pos = 0
+                self.edit_menu_obj.on_open_file(self.file_data)
                 self.on_resize(None)
                 
             except FileNotFoundError as err:
                 print(f'{err}')
 
     def search_dialog(self):
-        self.search_dialog_obj.show_search_dialog()
+        self.edit_menu_obj.show_dialog("sdfsd")
+
+    def replace_dialog(self):
+        self.edit_menu_obj.show_dialog("replace")
 
     def find_again(self):
-        self.search_dialog_obj.find_again()
+        self.edit_menu_obj.find_again()
 
     def new_file(self):
         pass
