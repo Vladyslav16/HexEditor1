@@ -6,7 +6,6 @@ from window import *
 from EditorContext import *
 from EditMenu import EditMenu
 
-
 class HexEditor:
     def __init__(self, root):
         self.root = root
@@ -308,7 +307,6 @@ class HexEditor:
                 print(f'{err}')
 
     def search_dialog(self):
-<<<<<<< HEAD
         self.edit_menu_obj.show_search_dialog()
 
     def replace_dialog(self):
@@ -316,7 +314,6 @@ class HexEditor:
 
     def find_again(self):
         self.edit_menu_obj.show_find_again()
-=======
         self.edit_menu_obj.show_dialog("search")
 
     def replace_dialog(self):
@@ -324,7 +321,6 @@ class HexEditor:
 
     def find_again(self):
         self.edit_menu_obj.find_again()
->>>>>>> 03ef8fa61481004c46d427c8d3b2e6fecacafc03
 
     def new_file(self):
         pass
