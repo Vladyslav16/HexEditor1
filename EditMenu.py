@@ -55,10 +55,6 @@ class EditMenu:
         else: return
         
     def show_dialog(self, dialog):
-##        dialog.ascii_entry
-##        dialog.hex_entry
-##        dialog.whole_word_checkbox
-
         self.get_selection(dialog)
         self.on_mode_change(dialog)
 
@@ -384,7 +380,10 @@ class EditMenu:
         search_bytes_len = len(search_bytes)
 
         if self.last_search_pos is None:
-            index = self.hex_text_widget.index(tk.SEL_FIRST)
+            try:
+                index = self.hex_text_widget.index(tk.SEL_FIRST)
+            except tk.TclError:
+                index = self.hex_text_widget.index(tk.INSERT)
             row, col = map(int, index.split("."))
             self.last_search_pos = self.hex_format.position_to_byte(row, col)
             print('Last search pos changed to:', self.last_search_pos)
@@ -392,8 +391,8 @@ class EditMenu:
         start_index = 0 if options.scope == "begin" else self.last_search_pos
 
         found = None
-        rng = (range(start_index + 1, data_len - search_bytes_len + 1) if direction == "down"
-        else range(start_index - 1, -1, -1))
+        rng = (range(start_index, data_len - search_bytes_len + 1) if direction == "down"
+        else range(start_index -1, -1))
             
         for i in rng:
             if self.file_data[i:i+search_bytes_len] == search_bytes:
@@ -431,9 +430,21 @@ class EditMenu:
         else:
             tk.messagebox.showinfo("!", "No matches found.")
 
-    def check_whole_word(self, pos, length):
-        pass
+    def check_whole_word(self, i, search_bytes_len):
+        if i == 0:
+            start_index = True
+        else:
+            left_sym = chr(self.file_data[i-1])
+            start_index = not left_sym.isalpha()
 
+        if i + search_bytes_len >= len(self.file_data):
+            end_index = True
+        else:
+            right_sym = chr(self.file_data[i+search_bytes_len])
+            end_index = not right_sym.isalpha()
+
+        return start_index and end_index
+            
     def find_again(self, dialog):
         direction = self._last_direction
         if self._last_query is None or self._last_mode is None:
