@@ -307,10 +307,10 @@ class HexEditor:
                 print(f'{err}')
 
     def search_dialog(self):
-        self.edit_menu_obj.show_search_dialog()
+        self.edit_menu_obj.create_dialog("SearchDialog")
 
     def replace_dialog(self):
-        self.edit_menu_obj.show_replace_dialog()
+        self.edit_menu_obj.create_dialog("ReplaceDialog")
 
     def find_again(self):
         self.edit_menu_obj.show_find_again()
