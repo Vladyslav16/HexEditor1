@@ -40,7 +40,7 @@ class Dialog:
                 self.word  = dialog.wholeWord_check
                 self.wrap  = dialog.wrapAround_check
                 self.scope = dialog.scope_mode
-                self.format  = dialog.search_format
+                self.search_format  = dialog.search_format
         return Options(self)
 
     def build_frames(self):

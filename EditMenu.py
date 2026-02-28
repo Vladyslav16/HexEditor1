@@ -17,7 +17,7 @@ class EditMenu:
         
         self.last_search_pos = None
         self.last_query = None
-        self.last_mode = None
+        self.last_format = None
         self.last_dialog = None
         self.last_direction = "down"
         
@@ -32,7 +32,7 @@ class EditMenu:
     def show_dialog(self):
         if self.dialog:
             self.get_selection(self.dialog)
-            self.on_mode_change(self.dialog)
+            self.on_search_format_change(self.dialog)
             self.dialog.show()
        
     def on_open_file(self, file_data):
@@ -47,8 +47,8 @@ class EditMenu:
         else: return
         
         
-    def on_mode_change(self, dialog):
-        if dialog.options.format.get() == ASCII:
+    def on_search_format_change(self, dialog):
+        if dialog.options.search_format.get() == ASCII:
             dialog.ascii_entry.config(state="normal")
             dialog.whole_word_checkbox.config(state="normal")
             dialog.hex_entry.config(state="disabled")
@@ -70,8 +70,8 @@ class EditMenu:
         # ASCII → HEX
         hex_str = " ".join(f"{ord(c):02X}" for c in text)
 
-        dialog.options.format.set(HEX)
-        self.on_mode_change(dialog)
+        dialog.options.search_format.set(HEX)
+        self.on_search_format_change(dialog)
 
         dialog.string_hex.set(hex_str)
         dialog.hex_entry.focus_set()
@@ -89,8 +89,8 @@ class EditMenu:
             for b in data
             )
 
-        dialog.options.format.set(ASCII)
-        self.on_mode_change(dialog)
+        dialog.options.search_format.set(ASCII)
+        self.on_search_format_change(dialog)
 
         dialog.string_ascii.set(text_str)
         dialog.ascii_entry.focus_set()
@@ -108,14 +108,14 @@ class EditMenu:
         row2, col2 = map(int, selection_end.split('.'))
         byte_last = self.hex_format.position_to_byte(row2, col2)
 
-        dialog.options.format.set((HEX, ASCII)[col1 >= self.hex_format.tail_pos])
-        self.on_mode_change(dialog)
+        dialog.options.search_format.set((HEX, ASCII)[col1 >= self.hex_format.tail_pos])
+        self.on_search_format_change(dialog)
         
         data = self.file_data[byte_first:byte_last]
 
-        if not data: return "", dialog.options.format.get()
+        if not data: return "", dialog.options.search_format.get()
 
-        if dialog.options.format.get() == HEX:
+        if dialog.options.search_format.get() == HEX:
             selected_str = bytes_to_hex(data)
             dialog.string_hex.set(selected_str)
             print('Selected hex:', selected_str)
@@ -124,13 +124,13 @@ class EditMenu:
             dialog.string_ascii.set(selected_str)
             print('Selected text:', selected_str)
 
-        return selected_str, dialog.options.format.get()        
+        return selected_str, dialog.options.search_format.get()        
         
-    def search_query(self, query, mode):
+    def search_query(self, query, search_format):
         if not query:
             return None
         query = query.strip()
-        if mode == HEX:
+        if search_format == HEX:
             query = query.replace(" ", "")
             if len(query) % 2 != 0:
                 return None
@@ -166,7 +166,7 @@ class EditMenu:
                     break
                 
             if found is not None:
-                self._last_search_pos = found
+                self.last_search_pos = found
                 return found
                 
             if found is None and dialog.wrapAround_check and not wrap:
@@ -179,16 +179,16 @@ class EditMenu:
 
     def next_match(self, direction, dialog):
         self._last_direction = direction
-        mode = dialog.options.format.get()
-        query = dialog.string_ascii.get() if mode == ASCII else dialog.string_hex.get()
+        search_format = dialog.options.search_format.get()
+        query = dialog.string_ascii.get() if search_format == ASCII else dialog.string_hex.get()
         
         if not query:
             return
         
         self.last_query = query
-        self.last_mode  = mode
+        self.last_format  = search_format
 
-        search_bytes = self.search_query(query, mode)
+        search_bytes = self.search_query(query, search_format)
         
         if not search_bytes or not self.file_data:
             return
@@ -203,6 +203,7 @@ class EditMenu:
                 index = self.hex_text_widget.index(tk.SEL_FIRST)
             except tk.TclError:
                 index = self.hex_text_widget.index(tk.INSERT)
+                
             row, col = map(int, index.split("."))
             self.last_search_pos = self.hex_format.position_to_byte(row, col)
             print('Last search pos changed to:', self.last_search_pos)
@@ -245,20 +246,22 @@ class EditMenu:
             
     def find_again(self, dialog):
         direction = self.last_direction
-        if self.last_query is None or self.last_mode is None:
+        if self.last_query is None or self.last_format is None:
             return
-        if self.last_mode == ASCII:
+        if self.last_format == ASCII:
             dialog.string_ascii.set(self.last_query)
         else:
             dialog.string_hex.set(self.last_query)
-
-        dialog.mode.set(self.last_mode)
+            
+        dialog.options.search_format.set(self.last_format)
         self.next_match(direction, dialog)
 
     def replace_next(self, dialog):
-        pass
+        search_format = dialog.options.search_format.get()
+        
+        search = dialog.string_ascii.get() if mode == ASCII else dialog.string_hex.get()
+        replace = dialog.replace_ascii.get() if mode == ASCII else dialog.replace_hex.get()
+
 
     def replace_all(self, dialog):
         pass
-        
-        
