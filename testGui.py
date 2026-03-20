@@ -55,7 +55,7 @@ class HexEditor:
             'Edit': {
                 'Find...':    {'combination': 'Ctrl+F',   'command': self.search_dialog},
                 'Find Again': {'combination': 'Ctrl+G',   'command': self.find_again},
-                'Replace...': {'combination': 'Ctrl+H',   'command': self.replace_dialog},
+                'Replace...': {'combination': 'Ctrl+R',   'command': self.replace_dialog},
                 
             }
             }

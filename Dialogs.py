@@ -3,9 +3,10 @@ import tkinter as tk
 ASCII = "ascii"
 HEX = "hex"
 class Dialog:
-    def __init__(self, editor, dialog_type):
+    def __init__(self, editor, dialog_type, update_window_func = None):
         self.editor = editor
         self.root = editor.root
+        self.update_window_func = update_window_func
         
         self.window = tk.Toplevel(self.root)
         self.window.title(dialog_type)
@@ -22,6 +23,8 @@ class Dialog:
 
         self.string_ascii = tk.StringVar()
         self.string_hex = tk.StringVar()
+
+        self.replace_string = tk.StringVar()
 
         self.build_frames()
         
@@ -60,12 +63,15 @@ class Dialog:
                        command=lambda: self.editor.on_search_format_change(self)
                        ).grid(row=2, column=0, sticky='w', padx=0, pady=0)
 
-        tk.Button(find_frame, text="Text->Hex",  width=8, height=1,
+        self.textbutton = tk.Button(find_frame, text="Text->Hex",  width=8, height=1,
                   command=lambda: self.editor.text_to_hex(self)
-                  ).grid(row=0, column=1, columnspan=2, sticky='we', padx=1, pady=1)
-        tk.Button(find_frame, text="Hex->Text", width=8, height=1,
+                  )
+        self.textbutton.grid(row=0, column=1, columnspan=2, sticky='we', padx=1, pady=1)
+        
+        self.hexbutton = tk.Button(find_frame, text="Hex->Text", width=8, height=1,
                   command=lambda: self.editor.hex_to_text(self)
-                  ).grid(row=2, column=1, columnspan=2, sticky='we', padx=1, pady=1)
+                  )
+        self.hexbutton.grid(row=2, column=1, columnspan=2, sticky='we', padx=1, pady=1)
         
         self.ascii_entry = tk.Entry(find_frame, textvariable=self.string_ascii, width=50)
         self.ascii_entry.grid(row=1, column=0, columnspan=3, sticky="we", padx=0, pady=0)
@@ -75,7 +81,7 @@ class Dialog:
 
     def build_options_frame(self):
         opt_frame = tk.LabelFrame(self.window, text="Options", padx=5, pady=5)
-        opt_frame.grid(row=1, column=0, sticky="wens", padx=5, pady=5)
+        opt_frame.grid(row=2, column=0, sticky="wens", padx=5, pady=5)
 
         self.match_case_checkbox = tk.Checkbutton(opt_frame, text="Match case", variable=self.matchCase_check)
         self.match_case_checkbox.grid(row=0, column=1, sticky="w")
@@ -86,7 +92,7 @@ class Dialog:
 
     def build_scope_frame(self):
         scope_frame = tk.LabelFrame(self.window, text="Scope from", padx=5, pady=5)
-        scope_frame.grid(row=1, column=1, sticky="wens", padx=5, pady=5)
+        scope_frame.grid(row=2, column=1, sticky="wens", padx=5, pady=5)
         tk.Radiobutton(scope_frame, text="Cursor", variable=self.scope_mode, value="cursor"
                        ).grid(row=0, column=0, sticky="w")
         tk.Radiobutton(scope_frame, text="Begin", variable=self.scope_mode, value="begin"
@@ -120,6 +126,15 @@ class SearchDialog(Dialog):
 class ReplaceDialog(Dialog):
     def __init__(self, editor):
         super().__init__(editor, "ReplaceDialog")
+        
+    def build_find_frame(self):
+        super().build_find_frame()
+
+        replace_frame = tk.LabelFrame(self.window, text="Replace with", padx=5, pady=5)
+        replace_frame.grid(row=1, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+
+        self.replace_ascii_entry = tk.Entry(replace_frame, textvariable=self.replace_string, width=50)
+        self.replace_ascii_entry.grid(row=0, column=0, sticky="we", padx=0, pady=0)
 
     def build_buttons_frame(self):
         buttons_frame = tk.LabelFrame(self.window, text=" ", padx=5, pady=5)

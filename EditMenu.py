@@ -31,6 +31,7 @@ class EditMenu:
 
     def show_dialog(self):
         if self.dialog:
+            self.last_dialog = self.dialog
             self.get_selection(self.dialog)
             self.on_search_format_change(self.dialog)
             self.dialog.show()
@@ -46,19 +47,32 @@ class EditMenu:
             self.find_again(last_dialog)
         else: return
         
-        
     def on_search_format_change(self, dialog):
         if dialog.options.search_format.get() == ASCII:
             dialog.ascii_entry.config(state="normal")
-            dialog.whole_word_checkbox.config(state="normal")
             dialog.hex_entry.config(state="disabled")
+            
+            dialog.match_case_checkbox.config(state="normal")
+            dialog.whole_word_checkbox.config(state="normal")
+            
+            dialog.textbutton.config(state="normal")
+            dialog.hexbutton.config(state="disabled")
+            
             dialog.ascii_entry.focus_set()
             dialog.ascii_entry.icursor(tk.END)
         else:
+            dialog.matchCase_check.set(False)
             dialog.wholeWord_check.set(False)
+            
+            dialog.match_case_checkbox.config(state="disabled")
             dialog.whole_word_checkbox.config(state="disabled")
+            
             dialog.ascii_entry.config(state="disabled")
             dialog.hex_entry.config(state="normal")
+
+            dialog.textbutton.config(state="disabled")
+            dialog.hexbutton.config(state="normal")
+        
             dialog.hex_entry.focus_set()
             dialog.hex_entry.icursor(tk.END)
 
@@ -70,6 +84,14 @@ class EditMenu:
         # ASCII → HEX
         hex_str = " ".join(f"{ord(c):02X}" for c in text)
 
+        
+        if dialog.dialog_type == "ReplaceDialog":
+            replace_ascii = dialog.replace_ascii_entry.get()
+            if replace_ascii:
+                hex_replace = " ".join(f"{ord(c):02X}" for c in replace_ascii)
+                dialog.replace_string.set("")
+                dialog.replace_string.set(hex_replace)
+            
         dialog.options.search_format.set(HEX)
         self.on_search_format_change(dialog)
 
@@ -88,6 +110,14 @@ class EditMenu:
             chr(b) if 0x20 <= b <= 0x7E else '.'
             for b in data
             )
+
+        if dialog.dialog_type == "ReplaceDialog":
+            hex_replace = dialog.replace_string.get().replace(" ", "")
+            if hex_replace:
+                data_replace = bytes.fromhex(hex_replace)
+                ascii_replace = ''.join(chr(b) if 0x20 <= b <= 0x7E else '.' for b in data_replace)
+                dialog.replace_string.set("")
+                dialog.replace_string.set(ascii_replace)
 
         dialog.options.search_format.set(ASCII)
         self.on_search_format_change(dialog)
@@ -138,47 +168,63 @@ class EditMenu:
 
         return bytearray(query, "ascii")
 
-    def find_in_block(self, file_data, start_index, search_bytes, going_up, dialog):
+    def find_in_block(self, file_data, search_bytes, going_up, dialog):
+        '''
+        Returns index of the found search_bytes block in the file_data
+            None if search_bytes were not found
+        '''
         search_bytes_len = len(search_bytes)
         file_data_len = len(file_data)
-
-        start_index = 0 if start_index is None else start_index
         wrap = False
-
+        start_index = 0
+        
+        if self.last_search_pos is not None or dialog.scope_mode != "begin":
+            start_index = self.last_search_pos + 1 if self.last_search_pos is not None else 0
+       
         while True:
             data = file_data[start_index:]
+            search = search_bytes
+
+            if not dialog.matchCase_check.get():
+                data = data.lower()
+                search = search.lower()
             
             if going_up:
                 data = data[::-1]
-                search_bytes = search_bytes[::-1]
-                
+                search = search[::-1]
+
             found = None
-            for i, c in enumerate(data):
-                if data[i:i+search_bytes_len] == search_bytes:
-                    idx = start_index + i
-                    if dialog.wholeWord_check:
+            
+            for i, _ in enumerate(data):
+                if data[i:i+search_bytes_len] == search:
+                    # pdb.set_trace()
+                    if going_up:
+                        idx = file_data_len - (start_index + i + search_bytes_len)
+                    else:
+                        idx = start_index + i
+                        
+                    if dialog.wholeWord_check.get():
                         if not self.check_whole_word(idx, search_bytes_len):
                             continue
-                    if going_up:
-                        found = file_data_len - (idx + search_bytes_len)
-                    else:
-                        found = idx
+                        
+                    found = idx
                     break
                 
             if found is not None:
                 self.last_search_pos = found
                 return found
                 
-            if found is None and dialog.wrapAround_check and not wrap:
+            if dialog.wrapAround_check and not wrap:
                 wrap = True
                 start_index = 0
                 continue
+            # pdb.set_trace()
             break
 
         return None
 
     def next_match(self, direction, dialog):
-        self._last_direction = direction
+        self.last_direction = direction
         search_format = dialog.options.search_format.get()
         query = dialog.string_ascii.get() if search_format == ASCII else dialog.string_hex.get()
         
@@ -208,9 +254,7 @@ class EditMenu:
             self.last_search_pos = self.hex_format.position_to_byte(row, col)
             print('Last search pos changed to:', self.last_search_pos)
 
-        start_index = 0 if dialog.scope_mode == "begin" else self.last_search_pos
-
-        found = self.find_in_block(self.file_data, start_index, search_bytes, direction != "down", dialog)
+        found = self.find_in_block(self.file_data, search_bytes, direction != "down", dialog)
 
         if found is not None:
             print('Last search pos:', self.last_search_pos, 'found:', found)
@@ -243,7 +287,7 @@ class EditMenu:
             end_index = not right_sym.isalpha()
 
         return start_index and end_index
-            
+
     def find_again(self, dialog):
         direction = self.last_direction
         if self.last_query is None or self.last_format is None:
@@ -256,12 +300,68 @@ class EditMenu:
         dialog.options.search_format.set(self.last_format)
         self.next_match(direction, dialog)
 
-    def replace_next(self, dialog):
+    def replace_next(self, direction, dialog):
         search_format = dialog.options.search_format.get()
         
-        search = dialog.string_ascii.get() if mode == ASCII else dialog.string_hex.get()
-        replace = dialog.replace_ascii.get() if mode == ASCII else dialog.replace_hex.get()
+        if search_format == ASCII:
+            search_string = dialog.string_ascii.get()
+            replace_string = dialog.replace_string.get()
+            
+        else:
+            search_string = dialog.string_hex.get()
+            replace_string = dialog.replace_string.get()
 
+        search_bytes = self.search_query(search_string, search_format)
+        replace_bytes = self.search_query(replace_string, search_format)
+
+        found = self.find_in_block(self.file_data, search_bytes, direction != "down", dialog)
+        
+        if found is not None:
+            end = found + len(search_bytes)
+            self.file_data[found:end] = replace_bytes
+            self.last_search_pos = found + len(replace_bytes) - 1
+            self.editor.on_resize(None)
+
+            # Підсвітка
+            self.hex_format.clear_highlight(self.hex_text_widget, Highlight.SELECTED)
+            bytes_hl.data[Highlight.SELECTED].bytes.clear()
+            
+            for b in range(found, found + len(replace_bytes)):
+                bytes_hl.data[Highlight.SELECTED].bytes.add(b)
+                
+            self.hex_format.highlight(self.hex_text_widget, Highlight.SELECTED)
+            
+            line, hex_start_col, hex_end_col, ascii_start_col = \
+                  self.hex_format.byte_coloring_positions(found)
+            
+            self.hex_text_widget.mark_set(tk.INSERT, f"{line}.{hex_start_col}")
+            self.hex_text_widget.see(f"{line}.{hex_start_col}")
+        else:
+            tk.messagebox.showinfo("!", "No matches found.")
+        
 
     def replace_all(self, dialog):
         pass
+    '''
+        search_format = dialog.options.search_format.get()
+        
+        if search_format == ASCII:
+            search_string = dialog.string_ascii.get()
+            replace_string = dialog.replace_string.get()
+            
+        else:
+            search_string = dialog.string_hex.get()
+            replace_string = dialog.replace_string.get()
+
+        search_bytes = self.search_query(search_string, search_format)
+        replace_bytes = self.search_query(replace_string, search_format)
+
+        while:
+            found = self.find_in_block(self.file_data, search_bytes, direction != "down", dialog)
+            
+            if found is not None:
+                end = found + len(search_bytes)
+                self.file_data[found:end] = replace_bytes
+                self.last_search_pos = found + len(replace_bytes) - 1
+                self.editor.on_resize(None)'''
+        
