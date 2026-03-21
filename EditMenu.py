@@ -175,53 +175,53 @@ class EditMenu:
         '''
         search_bytes_len = len(search_bytes)
         file_data_len = len(file_data)
-        wrap = False
         start_index = 0
-        
-        if self.last_search_pos is not None or dialog.scope_mode != "begin":
-            start_index = self.last_search_pos + 1 if self.last_search_pos is not None else 0
-       
-        while True:
-            data = file_data[start_index:]
-            search = search_bytes
 
-            if not dialog.matchCase_check.get():
-                data = data.lower()
-                search = search.lower()
+        step = -1 if going_up else 1
+
+        data = file_data[:]
+        search = search_bytes[:]
+
+        if not dialog.matchCase_check.get():
+            data = data.lower()
+            search = search.lower()
+
+        if self.last_search_pos is None:
+            start_index = file_data_len - search_bytes_len if going_up else 0
+        else:
+            start_index = self.last_search_pos - 1 if going_up else self.last_search_pos + 1
+
+        end = -1 if going_up else file_data_len - search_bytes_len
+
+        for i in range(start_index, end, step):
+            if data[i:i+search_bytes_len] == search:
+                
+                if dialog.wholeWord_check.get():
+                    if not self.check_whole_word(i, search_bytes_len):
+                        continue
+                    
+                self.last_search_pos = i
+                return i
             
+        if dialog.wrapAround_check.get():
             if going_up:
-                data = data[::-1]
-                search = search[::-1]
-
-            found = None
-            
-            for i, _ in enumerate(data):
+                start_index = file_data_len - search_bytes_len
+                end = self.last_search_pos
+            else:
+                start_index = 0
+                end = self.last_search_pos
+        
+            for i in range(start_index, end, step):
                 if data[i:i+search_bytes_len] == search:
-                    # pdb.set_trace()
-                    if going_up:
-                        idx = file_data_len - (start_index + i + search_bytes_len)
-                    else:
-                        idx = start_index + i
-                        
+
                     if dialog.wholeWord_check.get():
-                        if not self.check_whole_word(idx, search_bytes_len):
+                        if not self.check_whole_word(i, search_bytes_len):
                             continue
                         
-                    found = idx
-                    break
-                
-            if found is not None:
-                self.last_search_pos = found
-                return found
-                
-            if dialog.wrapAround_check and not wrap:
-                wrap = True
-                start_index = 0
-                continue
-            # pdb.set_trace()
-            break
-
-        return None
+                    self.last_search_pos = i
+                    return i
+            
+        return None    
 
     def next_match(self, direction, dialog):
         self.last_direction = direction
@@ -254,6 +254,7 @@ class EditMenu:
             self.last_search_pos = self.hex_format.position_to_byte(row, col)
             print('Last search pos changed to:', self.last_search_pos)
 
+##        pdb.set_trace()
         found = self.find_in_block(self.file_data, search_bytes, direction != "down", dialog)
 
         if found is not None:
@@ -342,26 +343,3 @@ class EditMenu:
 
     def replace_all(self, dialog):
         pass
-    '''
-        search_format = dialog.options.search_format.get()
-        
-        if search_format == ASCII:
-            search_string = dialog.string_ascii.get()
-            replace_string = dialog.replace_string.get()
-            
-        else:
-            search_string = dialog.string_hex.get()
-            replace_string = dialog.replace_string.get()
-
-        search_bytes = self.search_query(search_string, search_format)
-        replace_bytes = self.search_query(replace_string, search_format)
-
-        while:
-            found = self.find_in_block(self.file_data, search_bytes, direction != "down", dialog)
-            
-            if found is not None:
-                end = found + len(search_bytes)
-                self.file_data[found:end] = replace_bytes
-                self.last_search_pos = found + len(replace_bytes) - 1
-                self.editor.on_resize(None)'''
-        
