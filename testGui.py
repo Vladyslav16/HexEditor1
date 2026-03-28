@@ -30,7 +30,7 @@ class HexEditor:
         
         self.root.bind("<Configure>", self.on_resize)
 
-        self.hex_text_widget.bind_class("post-click1", '<Button-1>', self.scrolling)
+        self.hex_text_widget.bind_class("post-click1", '<ButtonRelease-1>', self.scrolling)
         self.hex_text_widget.bind('<Control-z>', self.ctrl_z)
         self.hex_text_widget.bind('<Control-Z>', self.ctrl_z)
         self.hex_text_widget.bind('<Control-Shift-z>', self.shift_ctrl_z)
@@ -62,7 +62,7 @@ class HexEditor:
         self.create_menu()
 
     def scrolling(self, event):
-        if event.type != tk.EventType.ButtonPress:
+        if event.type != tk.EventType.ButtonRelease:
             if event.keysym == "Prior":   # PageUp
                 self.hex_text_widget.yview_scroll(-1, 'pages')
             elif event.keysym == "Next":  # PageDown

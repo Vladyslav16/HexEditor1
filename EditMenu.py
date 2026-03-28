@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from Dialogs import SearchDialog, ReplaceDialog, ASCII, HEX
+from Dialogs import Dialog, ASCII, HEX
 from window import *
 from EditorContext import *
 import pdb
@@ -13,20 +13,25 @@ class EditMenu:
         self.hex_text_widget = editor.hex_text_widget
         self.hex_format = editor.hex_format
         
-        self.dialog = None
-        
         self.last_search_pos = None
         self.last_query = None
         self.last_format = None
         self.last_dialog = None
         self.last_direction = "down"
+
+        self.dialog = Dialog(self)
         
     def create_dialog(self, dialog_type):
-        dialogs_list = {
-                "SearchDialog": SearchDialog,
-                "ReplaceDialog": ReplaceDialog
-            }
-        self.dialog = dialogs_list[dialog_type](self)
+        if self.dialog:
+            self.dialog.hide()
+            
+        if dialog_type == "SearchDialog":
+            self.dialog.display("search")
+        elif dialog_type == "ReplaceDialog":
+            self.dialog.display("replace")
+        else:
+            return
+            
         self.show_dialog()
 
     def show_dialog(self):
@@ -132,7 +137,7 @@ class EditMenu:
             selection_end = self.hex_text_widget.index(tk.SEL_LAST)
         except tk.TclError:
             return "", ASCII
-        
+
         row1, col1 = map(int, selection_begin.split('.'))
         byte_first = self.hex_format.position_to_byte(row1, col1)
         row2, col2 = map(int, selection_end.split('.'))
@@ -140,8 +145,11 @@ class EditMenu:
 
         dialog.options.search_format.set((HEX, ASCII)[col1 >= self.hex_format.tail_pos])
         self.on_search_format_change(dialog)
+
+        if dialog.options.search_format.get() == ASCII:
+            byte_last -= 1
         
-        data = self.file_data[byte_first:byte_last]
+        data = self.file_data[byte_first:byte_last + 1]
 
         if not data: return "", dialog.options.search_format.get()
 
@@ -153,6 +161,14 @@ class EditMenu:
             selected_str = bytes_to_str(data)
             dialog.string_ascii.set(selected_str)
             print('Selected text:', selected_str)
+
+        #Підсвітка виділеного
+
+        self.hex_format.clear_highlight(self.hex_text_widget, Highlight.SELECTED)
+        bytes_hl.data[Highlight.SELECTED].bytes.clear()
+        for b in range(byte_first, byte_last + 1):
+            bytes_hl.data[Highlight.SELECTED].bytes.add(b)
+        self.hex_format.highlight(self.hex_text_widget, Highlight.SELECTED)
 
         return selected_str, dialog.options.search_format.get()        
         
@@ -182,7 +198,7 @@ class EditMenu:
         data = file_data[:]
         search = search_bytes[:]
 
-        if not dialog.matchCase_check.get():
+        if not dialog.matchCase_check.get() and dialog.options.search_format.get() == ASCII:
             data = data.lower()
             search = search.lower()
 

@@ -3,13 +3,13 @@ import tkinter as tk
 ASCII = "ascii"
 HEX = "hex"
 class Dialog:
-    def __init__(self, editor, dialog_type, update_window_func = None):
+    def __init__(self, editor, update_window_func = None):
         self.editor = editor
         self.root = editor.root
         self.update_window_func = update_window_func
         
         self.window = tk.Toplevel(self.root)
-        self.window.title(dialog_type)
+        self.window.title("Unknown")
         self.window.resizable(False, False)
         self.window.transient(self.root)
         self.window.protocol("WM_DELETE_WINDOW", self.hide)
@@ -27,14 +27,44 @@ class Dialog:
         self.replace_string = tk.StringVar()
 
         self.build_frames()
+        self.bind_tab_switch()
         
     @property
     def dialog_type(self):
         return self.window.title()
 
+    @dialog_type.setter
+    def dialog_type(self, value):
+        self.window.title(value)
+
     @property
     def options(self):
         return self.get_search_options()
+
+    def bind_tab_switch(self):
+        self.window.bind("<Control-Tab>", self.switch_dialog)
+
+    def switch_dialog(self, event=None):
+        if self.dialog_type == "SearchDialog":
+            self.editor.create_dialog("ReplaceDialog")
+        elif self.dialog_type == "ReplaceDialog":
+            self.editor.create_dialog("SearchDialog")
+        else:
+            return
+        
+    def display(self, switch_mode):
+        if switch_mode == "search":
+            self.dialog_type = "SearchDialog"
+            self.replace_frame.grid_remove()
+            self.btn_Replace_FindUp.grid_remove()
+            self.btn_Replace_FindDown.grid_remove()
+            self.btn_ReplaceAll.grid_remove()
+        elif switch_mode == "replace":
+            self.dialog_type = "ReplaceDialog"
+            self.replace_frame.grid()
+            self.btn_Replace_FindUp.grid()
+            self.btn_Replace_FindDown.grid()
+            self.btn_ReplaceAll.grid()
 
     def get_search_options(self):
         class Options:
@@ -50,7 +80,7 @@ class Dialog:
         self.build_find_frame()
         self.build_options_frame()
         self.build_scope_frame()
-        self.build_buttons_frame()
+        self.build_buttons_or_another_frame()
 
     def build_find_frame(self):
         find_frame = tk.LabelFrame(self.window, text="Find", padx=5, pady=5)
@@ -98,6 +128,38 @@ class Dialog:
         tk.Radiobutton(scope_frame, text="Begin", variable=self.scope_mode, value="begin"
                        ).grid(row=1, column=0, sticky="w")
 
+    def build_buttons_or_another_frame(self):
+        #Search btns
+        buttons_frame = tk.LabelFrame(self.window, text=" ", padx=5, pady=5)
+        buttons_frame.grid(row=0, column=2, rowspan=2, sticky='wens', padx=5, pady=5)
+
+        self.btn_close = tk.Button(buttons_frame, text="Close", command=self.hide)
+        self.btn_close.grid(row=0, column=2, sticky="we", padx=5, pady=5)
+        
+        self.btn_FindUp = tk.Button(buttons_frame, text="FindUp", command=lambda: self.editor.next_match("up", self))
+        self.btn_FindUp.grid(row=1, column=2, sticky="we", padx=5, pady=5)
+        
+        self.btn_FindDown = tk.Button(buttons_frame, text="FindDown", command=lambda: self.editor.next_match("down", self))
+        self.btn_FindDown.grid(row=2, column=2, sticky="we", padx=5, pady=5)
+                
+        #add replace widgets
+        self.replace_frame = tk.LabelFrame(self.window, text="Replace with", padx=5, pady=5)
+        self.replace_frame.grid(row=1, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+
+        self.replace_ascii_entry = tk.Entry(self.replace_frame, textvariable=self.replace_string, width=50)
+        self.replace_ascii_entry.grid(row=0, column=0, sticky="we", padx=0, pady=0)
+        
+        #Replace btns
+        self.btn_Replace_FindUp = tk.Button(buttons_frame, text="Replace+FindUp", command=lambda: self.editor.replace_next("up", self))
+        self.btn_Replace_FindUp.grid(row=3, column=2, sticky="we", padx=5, pady=5)
+        
+        self.btn_Replace_FindDown = tk.Button(buttons_frame, text="Replace+FindDown", command=lambda: self.editor.replace_next("down", self))
+        self.btn_Replace_FindDown.grid(row=4, column=2, sticky="we", padx=5, pady=5)
+##        TODO:
+##        Replace + ALL
+        self.btn_ReplaceAll = tk.Button(buttons_frame, text="ReplaceAll", command=lambda: self.editor.replace_all("up", self))
+        self.btn_ReplaceAll.grid(row=5, column=2, sticky="we", padx=5, pady=5)
+
     def hide(self):
         self.window.grab_release()
         self.window.withdraw()
@@ -107,47 +169,3 @@ class Dialog:
         self.window.lift()
         self.window.focus_set()
         self.window.grab_set()
-        
-class SearchDialog(Dialog):
-    def __init__(self, editor):
-        super().__init__(editor, "SearchDialog")
-
-    def build_buttons_frame(self):
-        buttons_frame = tk.LabelFrame(self.window, text=" ", padx=5, pady=5)
-        buttons_frame.grid(row=0, column=2, rowspan=2, sticky='wens', padx=5, pady=5)
-
-        tk.Button(buttons_frame, text="Close", command=self.hide
-                  ).grid(row=0, column=2, sticky="we", padx=5, pady=5)
-        tk.Button(buttons_frame, text="FindUp", command=lambda: self.editor.next_match("up", self)
-                  ).grid(row=1, column=2, sticky="we", padx=5, pady=5)
-        tk.Button(buttons_frame, text="FindDown", command=lambda: self.editor.next_match("down", self)
-                  ).grid(row=2, column=2, sticky="we", padx=5, pady=5)
-
-class ReplaceDialog(Dialog):
-    def __init__(self, editor):
-        super().__init__(editor, "ReplaceDialog")
-        
-    def build_find_frame(self):
-        super().build_find_frame()
-
-        replace_frame = tk.LabelFrame(self.window, text="Replace with", padx=5, pady=5)
-        replace_frame.grid(row=1, column=0, columnspan=2, sticky="we", padx=5, pady=5)
-
-        self.replace_ascii_entry = tk.Entry(replace_frame, textvariable=self.replace_string, width=50)
-        self.replace_ascii_entry.grid(row=0, column=0, sticky="we", padx=0, pady=0)
-
-    def build_buttons_frame(self):
-        buttons_frame = tk.LabelFrame(self.window, text=" ", padx=5, pady=5)
-        buttons_frame.grid(row=0, column=2, rowspan=2, sticky='wens', padx=5, pady=5)
-
-        tk.Button(buttons_frame, text="Close", command=self.hide
-                  ).grid(row=0, column=2, sticky="we", padx=5, pady=5)
-        tk.Button(buttons_frame, text="Replace+FindUp", command=lambda: self.editor.replace_next("up", self)
-                  ).grid(row=1, column=2, sticky="we", padx=5, pady=5)
-        tk.Button(buttons_frame, text="Replace+FindDown", command=lambda: self.editor.replace_next("down", self)
-                  ).grid(row=2, column=2, sticky="we", padx=5, pady=5)
-        
-##        TODO:
-##        Replace + ALL
-        tk.Button(buttons_frame, text="ReplaceAll", command=lambda: self.editor.replace_all("up", self)
-                  ).grid(row=3, column=2, sticky="we", padx=5, pady=5)
