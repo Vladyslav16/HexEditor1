@@ -113,6 +113,7 @@ class HexEditor:
 ##            pdb.set_trace()
 
 #        if event.??? in events_binded: return
+#        print(f'press_key - event {type(event)} - {vars(event)}')
             
         if event.keysym == "Tab":
             self.on_tab(event)

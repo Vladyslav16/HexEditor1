@@ -63,6 +63,9 @@ class EditMenu:
             dialog.textbutton.config(state="normal")
             dialog.hexbutton.config(state="disabled")
             
+            dialog.replace_ascii_entry.config(state="normal")
+            dialog.replace_hex_entry.config(state="disabled")
+            
             dialog.ascii_entry.focus_set()
             dialog.ascii_entry.icursor(tk.END)
         else:
@@ -77,6 +80,9 @@ class EditMenu:
 
             dialog.textbutton.config(state="disabled")
             dialog.hexbutton.config(state="normal")
+
+            dialog.replace_ascii_entry.config(state="disabled")
+            dialog.replace_hex_entry.config(state="normal")
         
             dialog.hex_entry.focus_set()
             dialog.hex_entry.icursor(tk.END)
@@ -322,11 +328,10 @@ class EditMenu:
         
         if search_format == ASCII:
             search_string = dialog.string_ascii.get()
-            replace_string = dialog.replace_string.get()
-            
+            replace_string = dialog.replace_ascii_string.get()
         else:
             search_string = dialog.string_hex.get()
-            replace_string = dialog.replace_string.get()
+            replace_string = dialog.replace_hex_string.get()
 
         search_bytes = self.search_query(search_string, search_format)
         replace_bytes = self.search_query(replace_string, search_format)
@@ -344,9 +349,9 @@ class EditMenu:
             bytes_hl.data[Highlight.SELECTED].bytes.clear()
             
             for b in range(found, found + len(replace_bytes)):
-                bytes_hl.data[Highlight.SELECTED].bytes.add(b)
+                bytes_hl.data[Highlight.CHANGED].bytes.add(b)
                 
-            self.hex_format.highlight(self.hex_text_widget, Highlight.SELECTED)
+            self.hex_format.highlight(self.hex_text_widget, Highlight.CHANGED)
             
             line, hex_start_col, hex_end_col, ascii_start_col = \
                   self.hex_format.byte_coloring_positions(found)
@@ -356,6 +361,33 @@ class EditMenu:
         else:
             tk.messagebox.showinfo("!", "No matches found.")
         
-
     def replace_all(self, dialog):
-        pass
+        search_format = dialog.options.search_format.get()
+        
+        if search_format == ASCII:
+            search_string = dialog.string_ascii.get()
+            replace_string = dialog.replace_ascii_string.get()
+        else:
+            search_string = dialog.string_hex.get()
+            replace_string = dialog.replace_hex_string.get()
+
+        search_bytes = self.search_query(search_string, search_format)
+        replace_bytes = self.search_query(replace_string, search_format)
+
+        self.hex_format.clear_highlight(self.hex_text_widget, Highlight.SELECTED)
+        bytes_hl.data[Highlight.SELECTED].bytes.clear()
+
+        i = 0
+        data_len = len(self.file_data)
+
+        while i <= data_len - len(search_bytes):
+            if self.file_data[i:i+len(search_bytes)] == search_bytes:
+                self.file_data[i:i+len(search_bytes)] = replace_bytes
+                for b in range(i, i + len(replace_bytes)):
+                    bytes_hl.data[Highlight.CHANGED].bytes.add(b)
+                i += len(search_bytes)
+            else:
+                i += 1
+
+        self.editor.on_resize(None)
+        self.hex_format.highlight(self.hex_text_widget, Highlight.CHANGED)
